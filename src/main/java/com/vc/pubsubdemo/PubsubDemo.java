@@ -59,7 +59,7 @@ public class PubsubDemo {
         Pipeline pipeline = Pipeline.create(myOptions);
 
         PCollection<String> suppData = pipeline.apply("Read Supplement Data", TextIO.read().from("gs://" + bucketName + "/TrainData_Fraud_gcpml.csv"))
-                .apply("FixedWindow",Window.<String>into(FixedWindows.of(Duration.ZERO)));
+                .apply("FixedWindow",Window.<String>into(FixedWindows.of(Duration.millis(0))));
 
         PCollection<String> input = pipeline
                 .apply("ReceiveMessage", PubsubIO.readStrings().fromTopic(topicName))
