@@ -32,6 +32,12 @@ public class PubsubDemo {
         Double getAveragingInterval();
 
         void setAveragingInterval(Double d);
+
+        String getTopic();
+        void setTopic(String topic);
+
+        String getBucket();
+        void setBucket(String bucket);
     }
 
     public static void main(String args[]) {
