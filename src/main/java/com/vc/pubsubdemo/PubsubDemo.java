@@ -11,12 +11,14 @@ import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.transforms.windowing.*;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
+import org.apache.beam.sdk.values.PCollectionView;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.List;
 
 /**
  * Created by Vincent on 2017/12/30.
@@ -58,19 +60,13 @@ public class PubsubDemo {
 
         Pipeline pipeline = Pipeline.create(myOptions);
 
-        PCollection<String> suppData = pipeline.apply("Read Supplement Data", TextIO.read().from("gs://" + bucketName + "/TrainData_Fraud_gcpml.csv"))
-                .apply(// TimeWindow
-                        Window.<String>into(FixedWindows.of(Duration.millis(500)))
-                                .triggering(
-                                        AfterProcessingTime.pastFirstElementInPane()
-                                                .plusDelayOf(Duration.millis(500))
-                                ).withAllowedLateness(Duration.millis(100))
-                                .accumulatingFiredPanes()
-                );
+        PCollectionView<List<String>> suppData = pipeline.apply("Read Supplement Data", TextIO.read().from("gs://" + bucketName + "/TrainData_Fraud_gcpml.csv"))
+                .apply(View.<String>asList());
+
 
         PCollection<String> input = pipeline
                 .apply("ReceiveMessage", PubsubIO.readStrings().fromTopic(topicName))
-                .apply(// TimeWindow
+                .apply("TimeWindow",
                         Window.<String>into(FixedWindows.of(Duration.millis(500)))
                                 .triggering(
                                         AfterProcessingTime.pastFirstElementInPane()
@@ -117,16 +113,23 @@ public class PubsubDemo {
         PCollection<String> finalResult = PCollectionList
                 .of(branch1)
                 .and(branch2)
-                .and(suppData)
                 .apply(Flatten.pCollections())
                 .apply("PrintAllRecords", ParDo.of(new DoFn<String, String>() {
 
                     @ProcessElement
                     public void processElement(ProcessContext c) {
+                        List<String> sideInput = c.sideInput(suppData);
+
+                        StringBuffer sb = new StringBuffer();
+
+                        sideInput.forEach(record -> sb.append(record).append("\r\n"));
+
                         c.output(c.element());
+                        c.output(sb.toString());
+
                         logger.info("Final Records : " + c.element());
                     }
-                }));
+                }).withSideInputs(suppData));
 
 
         //Write result to GCS
