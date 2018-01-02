@@ -59,7 +59,7 @@ public class PubsubDemo {
         Pipeline pipeline = Pipeline.create(myOptions);
 
         PCollection<String> suppData = pipeline.apply("Read Supplement Data", TextIO.read().from("gs://" + bucketName + "/TrainData_Fraud_gcpml.csv"))
-                .apply("TimeWindow",
+                .apply(// TimeWindow
                         Window.<String>into(FixedWindows.of(Duration.millis(500)))
                                 .triggering(
                                         AfterProcessingTime.pastFirstElementInPane()
@@ -70,7 +70,7 @@ public class PubsubDemo {
 
         PCollection<String> input = pipeline
                 .apply("ReceiveMessage", PubsubIO.readStrings().fromTopic(topicName))
-                .apply("TimeWindow",
+                .apply(// TimeWindow
                         Window.<String>into(FixedWindows.of(Duration.millis(500)))
                                 .triggering(
                                         AfterProcessingTime.pastFirstElementInPane()
