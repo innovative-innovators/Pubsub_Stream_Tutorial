@@ -38,7 +38,7 @@ public class PubsubDemo {
 
         String topicName = TOPIC_NAME_TEMPLATE.replace("PROJECT_NAME", args[0].split("=")[1])
                 .replace("TOPIC_NAME", args[1].split("=")[1]);
-        String bucketName = args[2].split("=")[2];
+        String bucketName = args[2].split("=")[1];
 
         MyOptions myOptions = PipelineOptionsFactory.fromArgs(args).withValidation().as(MyOptions.class);
         myOptions.setStreaming(true);
