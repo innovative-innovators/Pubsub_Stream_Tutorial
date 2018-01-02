@@ -34,9 +34,11 @@ public class PubsubDemo {
         void setAveragingInterval(Double d);
 
         String getTopic();
+
         void setTopic(String topic);
 
         String getBucket();
+
         void setBucket(String bucket);
     }
 
@@ -56,7 +58,7 @@ public class PubsubDemo {
 
         Pipeline pipeline = Pipeline.create(myOptions);
 
-        PCollection<String> suppData = pipeline.apply("Read Supplement Data", TextIO.read().from("gs://vc-bucket/TrainData_Fraud_gcpml.csv"));
+        PCollection<String> suppData = pipeline.apply("Read Supplement Data", TextIO.read().from("gs://" + bucketName + "/TrainData_Fraud_gcpml.csv"));
 
         PCollection<String> input = pipeline
                 .apply("ReceiveMessage", PubsubIO.readStrings().fromTopic(topicName))
@@ -107,6 +109,7 @@ public class PubsubDemo {
         PCollection<String> finalResult = PCollectionList
                 .of(branch1)
                 .and(branch2)
+                .and(suppData)
                 .apply(Flatten.pCollections())
                 .apply("PrintAllRecords", ParDo.of(new DoFn<String, String>() {
 
@@ -119,7 +122,7 @@ public class PubsubDemo {
 
 
         //Write result to GCS
-        // finalResult.apply(TextIO.write().withWindowedWrites().withNumShards(1).to("gs://vc-bucket/pubsub-final-result/final-result").withSuffix("txt"));
+        // finalResult.apply(TextIO.write().withWindowedWrites().withNumShards(1).to("gs://"+bucketName+"/pubsub-final-result/final-result").withSuffix("txt"));
         finalResult.apply(
                 TextIO.write()
                         .withoutSharding()
