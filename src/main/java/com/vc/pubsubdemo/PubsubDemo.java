@@ -58,8 +58,15 @@ public class PubsubDemo {
 
         Pipeline pipeline = Pipeline.create(myOptions);
 
-//        PCollection<String> suppData = pipeline.apply("Read Supplement Data", TextIO.read().from("gs://" + bucketName + "/TrainData_Fraud_gcpml.csv"))
-//                .apply("FixedWindow",Window.<String>into(FixedWindows.of(Duration.millis(0))));
+        PCollection<String> suppData = pipeline.apply("Read Supplement Data", TextIO.read().from("gs://" + bucketName + "/TrainData_Fraud_gcpml.csv"))
+                .apply("TimeWindow",
+                        Window.<String>into(FixedWindows.of(Duration.millis(500)))
+                                .triggering(
+                                        AfterProcessingTime.pastFirstElementInPane()
+                                                .plusDelayOf(Duration.millis(500))
+                                ).withAllowedLateness(Duration.millis(100))
+                                .accumulatingFiredPanes()
+                );
 
         PCollection<String> input = pipeline
                 .apply("ReceiveMessage", PubsubIO.readStrings().fromTopic(topicName))
@@ -110,7 +117,7 @@ public class PubsubDemo {
         PCollection<String> finalResult = PCollectionList
                 .of(branch1)
                 .and(branch2)
-//                .and(suppData)
+                .and(suppData)
                 .apply(Flatten.pCollections())
                 .apply("PrintAllRecords", ParDo.of(new DoFn<String, String>() {
 
