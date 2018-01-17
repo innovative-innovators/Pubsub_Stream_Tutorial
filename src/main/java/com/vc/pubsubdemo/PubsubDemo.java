@@ -60,7 +60,7 @@ public class PubsubDemo {
 
         Pipeline pipeline = Pipeline.create(myOptions);
 
-        PCollectionView<List<String>> suppData = pipeline.apply("Read Supplement Data", TextIO.read().from("gs://" + bucketName + "/TrainData_Fraud_gcpml.csv"))
+        PCollectionView<List<String>> suppData = pipeline.apply("Read Supplement Data", TextIO.read().from("gs://" + bucketName + "/supplement_data.txt"))
                 .apply(View.<String>asList());
 
 
