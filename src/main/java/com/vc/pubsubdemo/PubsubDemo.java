@@ -1,5 +1,8 @@
 package com.vc.pubsubdemo;
 
+import com.google.bigtable.admin.v2.CreateTableRequest;
+import com.google.cloud.bigtable.beam.CloudBigtableIO;
+import com.google.cloud.bigtable.beam.CloudBigtableScanConfiguration;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.TextIO;
@@ -12,6 +15,8 @@ import org.apache.beam.sdk.transforms.windowing.*;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PCollectionView;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Put;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Created by Vincent on 2017/12/30.
@@ -46,7 +52,9 @@ public class PubsubDemo {
 
     public static void main(String args[]) {
 
-        String topicName = TOPIC_NAME_TEMPLATE.replace("PROJECT_NAME", args[0].split("=")[1])
+        String projectId = args[0].split("=")[1];
+
+        String topicName = TOPIC_NAME_TEMPLATE.replace("PROJECT_NAME", projectId)
                 .replace("TOPIC_NAME", args[1].split("=")[1]);
         String bucketName = args[2].split("=")[1];
 
@@ -57,6 +65,14 @@ public class PubsubDemo {
 //        // Window Interval & Frequency
 //        Duration interval = Duration.millis(1000);
 //        Duration frequency = interval.dividedBy(2);
+
+
+        CloudBigtableScanConfiguration config = new CloudBigtableScanConfiguration.Builder()
+                .withProjectId(projectId)
+                .withInstanceId("vc-big-table-demo")
+                .withTableId("vc-bigtable-demo")
+                .build();
+
 
         Pipeline pipeline = Pipeline.create(myOptions);
 
@@ -107,6 +123,24 @@ public class PubsubDemo {
                     }
                 }
         ));
+
+
+        /**
+         * Write the UNION list to BigTable
+         */
+        PCollectionList
+                .of(branch1)
+                .and(branch2)
+                .apply(Flatten.pCollections())
+                .apply(ParDo.of(new DoFn<String, Mutation>() {
+                    private static final long serialVersionUID = 1L;
+
+                    @ProcessElement
+                    public void processElement(DoFn<String, Mutation>.ProcessContext c) throws Exception {
+                        c.output(new Put(c.element().getBytes()).addColumn("vcbt".getBytes(), UUID.randomUUID().toString().getBytes(), c.element().getBytes()));
+                    }
+                }))
+                .apply(CloudBigtableIO.writeToTable(config));
 
 
         // Using Flatten to merge PCollections
