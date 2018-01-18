@@ -126,28 +126,32 @@ public class PubsubDemo {
 
 
         /**
+         *  Manipulate JOINT PCollection
+         */
+        PCollection<String> jointPCollection = PCollectionList
+                .of(branch1)
+                .and(branch2)
+                .apply(Flatten.pCollections());
+
+        /**
          * Write the UNION list to BigTable
          */
-        PCollectionList
-                .of(branch1)
-                .and(branch2)
-                .apply(Flatten.pCollections())
-                .apply(ParDo.of(new DoFn<String, Mutation>() {
-                    private static final long serialVersionUID = 1L;
+        jointPCollection.apply(ParDo.of(new DoFn<String, Mutation>() {
+            private static final long serialVersionUID = 1L;
 
-                    @ProcessElement
-                    public void processElement(DoFn<String, Mutation>.ProcessContext c) throws Exception {
-                        c.output(new Put(c.element().getBytes()).addColumn("vcbt".getBytes(), UUID.randomUUID().toString().getBytes(), c.element().getBytes()));
-                    }
-                }))
-                .apply(CloudBigtableIO.writeToTable(config));
+            @ProcessElement
+            public void processElement(DoFn<String, Mutation>.ProcessContext c) throws Exception {
+                c.output(new Put(c.element().getBytes())
+                        .addColumn("vcbt".getBytes(),
+                                    UUID.randomUUID().toString().getBytes(),
+                                    c.element().getBytes())
+                );
+            }
+        })).apply(CloudBigtableIO.writeToTable(config));
 
 
-        // Using Flatten to merge PCollections
-        PCollection<String> finalResult = PCollectionList
-                .of(branch1)
-                .and(branch2)
-                .apply(Flatten.pCollections())
+        // Using Flatten to merge PCollectionsView (Supplement data)
+        PCollection<String> finalResult = jointPCollection
                 .apply("PrintAllRecords", ParDo.of(new DoFn<String, String>() {
 
                     @ProcessElement
@@ -167,7 +171,6 @@ public class PubsubDemo {
 
 
         //Write result to GCS
-        // finalResult.apply(TextIO.write().withWindowedWrites().withNumShards(1).to("gs://"+bucketName+"/pubsub-final-result/final-result").withSuffix("txt"));
         finalResult.apply(
                 TextIO.write()
                         .withoutSharding()
